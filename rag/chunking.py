@@ -27,6 +27,8 @@ def est_tokens(text: str) -> int:
 
 
 def is_heading(line: str) -> bool:
+    if not config.CHUNK_HEADINGS:
+        return False
     s = line.strip()
     if not (3 <= len(s) <= 70) or _BULLET.match(s):
         return False

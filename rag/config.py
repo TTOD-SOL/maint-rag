@@ -23,10 +23,11 @@ EMBED_MODEL = os.getenv("EMBED_MODEL", "BAAI/bge-small-en-v1.5")
 FASTEMBED_CACHE = os.getenv("FASTEMBED_CACHE_PATH", str(ROOT / ".cache" / "fastembed"))
 
 # Chunking (tokens are estimated as words * 1.3; see rag/chunking.py)
-CHUNK_TARGET_TOKENS = int(os.getenv("CHUNK_TARGET_TOKENS", "600"))
-CHUNK_MAX_TOKENS = int(os.getenv("CHUNK_MAX_TOKENS", "800"))
-CHUNK_MIN_TOKENS = int(os.getenv("CHUNK_MIN_TOKENS", "200"))
+CHUNK_TARGET_TOKENS = int(os.getenv("CHUNK_TARGET_TOKENS", "350"))
+CHUNK_MAX_TOKENS = int(os.getenv("CHUNK_MAX_TOKENS", "500"))
+CHUNK_MIN_TOKENS = int(os.getenv("CHUNK_MIN_TOKENS", "150"))
 CHUNK_OVERLAP = float(os.getenv("CHUNK_OVERLAP", "0.15"))
+CHUNK_HEADINGS = os.getenv("CHUNK_HEADINGS", "1") == "1"  # 0 = plain fixed-size windows (ablation)
 
 # Retrieval
 CANDIDATES = int(os.getenv("RETRIEVAL_CANDIDATES", "20"))
