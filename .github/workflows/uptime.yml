@@ -1,0 +1,55 @@
+name: Uptime
+# Pings /health every 30 minutes. Opens (or comments on) an `incident` issue on failure and closes it
+# on recovery. GitHub emails you about new issues. Retries cover Render's free-tier cold start
+# (~40-90 s). Note: a ping every 30 min wakes the service each time but does not keep it awake
+# (it sleeps after 15 min idle), so this costs roughly 12 instance-hours a day of the 750/month.
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: vars.SERVICE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      URL: ${{ vars.SERVICE_URL }}
+    steps:
+      - name: Probe /health (up to 6 tries, 30 s apart)
+        id: probe
+        run: |
+          code=000; ms=0
+          for i in 1 2 3 4 5 6; do
+            out=$(curl -s -o /tmp/health.json -m 90 -w "%{http_code} %{time_total}" "$URL/health" || true)
+            code=${out%% *}; ms=$(awk -v t="${out##* }" 'BEGIN{printf "%d", t*1000}')
+            if [ "$code" = "200" ] && grep -q '"index_loaded":true' /tmp/health.json; then break; fi
+            echo "try $i: status=$code ${ms}ms"; sleep 30
+          done
+          echo "code=$code" >> "$GITHUB_OUTPUT"; echo "ms=$ms" >> "$GITHUB_OUTPUT"
+          [ "$code" = "200" ] && grep -q '"index_loaded":true' /tmp/health.json && echo "healthy=true" >> "$GITHUB_OUTPUT" || echo "healthy=false" >> "$GITHUB_OUTPUT"
+      - name: Ensure incident label exists
+        run: gh label create incident --color D93F0B --description "Production health check failed" -R "$GITHUB_REPOSITORY" 2>/dev/null || true
+      - name: Open or update incident on failure
+        if: steps.probe.outputs.healthy == 'false'
+        run: |
+          body="Health check failed: \`GET $URL/health\` returned **${{ steps.probe.outputs.code }}** after ${{ steps.probe.outputs.ms }} ms (6 tries over ~3 minutes). Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. See docs/RUNBOOK.md."
+          n=$(gh issue list -R "$GITHUB_REPOSITORY" --label incident --state open --json number --jq '.[0].number // ""')
+          if [ -n "$n" ]; then gh issue comment "$n" -R "$GITHUB_REPOSITORY" --body "$body"
+          else gh issue create -R "$GITHUB_REPOSITORY" --label incident --title "Production health check failing" --body "$body"; fi
+          exit 1
+      - name: Close incident on recovery
+        if: steps.probe.outputs.healthy == 'true'
+        run: |
+          for n in $(gh issue list -R "$GITHUB_REPOSITORY" --label incident --state open --json number --jq '.[].number'); do
+            gh issue close "$n" -R "$GITHUB_REPOSITORY" --comment "Recovered: /health returned 200 in ${{ steps.probe.outputs.ms }} ms."
+          done
