@@ -1,0 +1,52 @@
+name: Deploy
+# Render auto-deploys a push once its checks pass (render.yaml: autoDeployTrigger: checksPass).
+# This workflow then verifies the live service and rolls back if the new version is unhealthy.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    # skipped (not failed) until the Render service exists and the SERVICE_URL variable is set
+    if: github.event.workflow_run.conclusion == 'success' && vars.SERVICE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SERVICE_URL: ${{ vars.SERVICE_URL }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Find last good SHA (previous successful deploy run)
+        id: last_good
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prev=$(gh run list --workflow deploy.yml --status success --limit 1 --json headSha --jq '.[0].headSha // ""' -R "$GITHUB_REPOSITORY")
+          echo "sha=$prev" >> "$GITHUB_OUTPUT"; echo "last good: ${prev:-none}"
+      - name: Smoke test the new version
+        id: smoke
+        run: python scripts/smoke.py "$SERVICE_URL" --version "${SHA:0:7}" --timeout 1800
+      - name: Roll back to the last good commit
+        if: failure() && steps.smoke.conclusion == 'failure'
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          GOOD: ${{ steps.last_good.outputs.sha }}
+        run: |
+          if [ -z "$GOOD" ] || [ -z "$HOOK" ]; then echo "::error::smoke failed and no rollback target/hook is available"; exit 1; fi
+          curl -fsS -X POST "${HOOK}&ref=${GOOD}" >/dev/null
+          echo "::error::deploy of ${SHA:0:7} failed smoke test; redeploying ${GOOD:0:7}"
+          python scripts/smoke.py "$SERVICE_URL" --version "${GOOD:0:7}" --timeout 1800 || true
+          exit 1

@@ -98,3 +98,19 @@ uv run python -m eval.experiments                 # chunking ablation
   import + TLS setup). Creating the client and running one search at startup moved that cost out of the
   first request: first question 13 s, steady state ~10 s, startup ~85 s.
 - **Version in `/health`** comes from Render's `RENDER_GIT_COMMIT`, falling back to `APP_VERSION`.
+
+## CI/CD (Phase 7)
+
+- **CI** (`ci.yml`, on PR and push): uv, ruff, pytest (LLM mocked, no key), fresh index build, then a
+  deterministic **retrieval gate: hybrid hit@6 must stay >= 0.80** (currently 0.933), then a Docker
+  build plus a container start check. No secrets are needed, so PRs from forks run safely.
+- **Deploy is split between Render and GitHub Actions.** Render deploys a push itself once CI passes
+  (`autoDeployTrigger: checksPass`). `deploy.yml` runs after CI succeeds on `main`, waits until the live
+  `/health` reports the pushed commit (Render sets `RENDER_GIT_COMMIT`), then runs the smoke test:
+  `/health` plus one grounded, cited `/demo/ask`. This replaces "run deploy_hf.py", which needs HF PRO.
+- **Rollback.** If the smoke test fails, the workflow calls Render's deploy hook with `ref=<last good
+  sha>` and fails loudly. The last good SHA is the head SHA of the previous successful `deploy.yml` run,
+  found with `gh run list`. The plan said to store it in a repo variable, but writing repo variables needs
+  a personal access token, while reading run history works with the built-in `GITHUB_TOKEN`; the result is
+  the same without another long-lived secret.
+- The deploy job is skipped, not failed, until the `SERVICE_URL` repo variable is set.
