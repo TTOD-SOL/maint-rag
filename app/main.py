@@ -40,7 +40,7 @@ from rag import config
 
 log = logging.getLogger("app")
 STATIC = Path(__file__).parent / "static"
-VERSION = os.getenv("APP_VERSION", "dev")
+VERSION = os.getenv("RENDER_GIT_COMMIT", "")[:7] or os.getenv("APP_VERSION", "dev")
 DEMO_RATE = os.getenv("DEMO_RATE_LIMIT", "10/hour")
 
 
@@ -144,6 +144,24 @@ def create_app(retriever=None, llm=None) -> FastAPI:
                 log.exception("index failed to load")
         if app.state.retriever is not None:
             INDEX_CHUNKS.set(app.state.retriever.size)
+            if os.getenv("WARMUP", "1") == "1":
+                # The first ONNX inference is slow on a throttled CPU (38 s at 0.1 CPU), so pay for it
+                # at startup instead of on the first visitor's question.
+                t0 = time.perf_counter()
+                try:
+                    app.state.retriever.search("warmup", k=1)
+                    log.info("warmup done", extra={"warmup_ms": round((time.perf_counter() - t0) * 1000)})
+                except Exception:
+                    log.exception("warmup failed")
+        if app.state.llm is None and os.getenv("WARMUP", "1") == "1":
+            # Importing the SDK and building the client is slow on a throttled CPU; do it now.
+            # No network call is made. If the key is missing, get_llm() reports it per request.
+            try:
+                from rag.llm import get_llm as make_llm
+
+                app.state.llm = make_llm()
+            except Exception as e:
+                log.warning("llm client not initialised at startup", extra={"error": type(e).__name__})
         DEMO_REMAINING.set(app.state.demo_cap.remaining())
         yield
 

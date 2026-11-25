@@ -1,0 +1,22 @@
+# Render Blueprint: free-tier web service running the Dockerfile in this repo.
+# Dashboard: New > Blueprint > pick this repo. Render prompts for the two `sync: false` secrets.
+services:
+  - type: web
+    name: maint-rag
+    runtime: docker
+    plan: free            # explicit: Blueprints default to a paid plan, which asks for a card
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass   # deploy a push only after its CI checks pass
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: APP_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: claude-haiku-5-5
+      - key: DEMO_DAILY_CAP
+        value: "200"
+      - key: PORT          # Render's default web port; the app binds to $PORT
+        value: "10000"

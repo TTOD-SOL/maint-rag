@@ -35,6 +35,9 @@ ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     FASTEMBED_CACHE_PATH=/app/.cache/fastembed \
     HF_HUB_OFFLINE=1 ANONYMIZED_TELEMETRY=False \
+    # Memory: fit Render's 512 MB free tier. glibc keeps one malloc arena per thread, and the sync
+    # endpoints run in a threadpool; capping arenas and ONNX/OpenMP threads cut peak RSS 474 -> ~250 MiB.
+    MALLOC_ARENA_MAX=2 OMP_NUM_THREADS=1 ORT_NUM_THREADS=1 \
     PORT=7860
 WORKDIR /app
 

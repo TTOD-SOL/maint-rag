@@ -72,3 +72,29 @@ uv run python -m eval.experiments                 # chunking ablation
 - **Dashboard gotchas:** every Grafana query in a panel needs a unique `refId`, and ratio panels use
   `or vector(0)` so they show 0% instead of "No data" before the first refusal or error.
 - **The demo rate limiter is in-memory.** Restarting the app resets the per-IP counters.
+
+## Hosting (Phase 6)
+
+- **Hugging Face Spaces was the plan, but Docker Spaces now need a PRO subscription.** `create_repo`
+  returned `402 Payment Required: hosting Gradio and Docker Spaces on free cpu-basic requires a PRO
+  subscription`. That breaks the $0 / no-card budget, so the primary target is **Render's free web
+  service**. `infra/deploy_hf.py` stays in the repo as a documented alternative.
+- **`plan: free` is set explicitly in `render.yaml`** because Blueprints default to a paid plan.
+  `autoDeployTrigger: checksPass` deploys a push only after CI passes.
+- **Memory under Render's 512 MB cap.** Measured with `scripts/mem_check.sh` (container limited to
+  512 MiB, 8 questions through `/demo/ask`, peak from `docker stats`):
+
+  | Config | idle | peak |
+  |---|---|---|
+  | baseline image | 382 MiB | **474 MiB** (too close to the limit) |
+  | `MALLOC_ARENA_MAX=2`, `OMP_NUM_THREADS=1`, `ORT_NUM_THREADS=1` | 204 MiB | **267 MiB** |
+  | + startup warm-up (final) | 255 MiB | **262 MiB** |
+
+  glibc keeps a malloc arena per thread and the sync endpoints run in a threadpool, so capping arenas
+  was the big win. Profiling the process showed `chromadb` plus the embedding model are ~125 MiB of
+  the ~300 MiB, so lazy-loading or dropping Chroma was not needed and I left the retrieval design alone.
+- **Cold start on 0.1 CPU** (`docker run --cpus 0.1 -m 512m`): the first question after boot took 38 s.
+  Warming up the embedder alone did not help; the cost was the lazily created Anthropic client (SDK
+  import + TLS setup). Creating the client and running one search at startup moved that cost out of the
+  first request: first question 13 s, steady state ~10 s, startup ~85 s.
+- **Version in `/health`** comes from Render's `RENDER_GIT_COMMIT`, falling back to `APP_VERSION`.
