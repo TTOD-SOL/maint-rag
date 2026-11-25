@@ -114,3 +114,7 @@ uv run python -m eval.experiments                 # chunking ablation
   a personal access token, while reading run history works with the built-in `GITHUB_TOKEN`; the result is
   the same without another long-lived secret.
 - The deploy job is skipped, not failed, until the `SERVICE_URL` repo variable is set.
+- **Superseded deploys are cancelled** (`cancel-in-progress: true` on `deploy.yml`). With two pushes
+  close together, the first verification run kept waiting for a commit Render had already replaced and
+  would have failed after its 30-minute timeout, blocking the second. Found when pushing docs commits
+  back to back; the newest push now wins.

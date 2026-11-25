@@ -13,7 +13,9 @@ permissions:
 
 concurrency:
   group: deploy
-  cancel-in-progress: false
+  # Newest push wins: a run still waiting for a version that a later push already replaced would
+  # otherwise time out and fail falsely.
+  cancel-in-progress: true
 
 jobs:
   verify:
