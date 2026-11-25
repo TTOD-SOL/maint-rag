@@ -19,7 +19,7 @@ import json
 import statistics
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from rag import config
@@ -135,7 +135,7 @@ def answer_metrics(retriever, llm, golden: list[dict], k: int) -> dict:
 
 
 def render(ret: list[dict], ans: dict | None, model: str) -> str:
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     out = [f"# Evaluation results\n\nGenerated {now} by `eval/run_eval.py` on `eval/golden.jsonl` "
            f"({sum(1 for _ in load_golden())} questions; {ret[0]['n']} answerable).\n",
            "## Retrieval (deterministic, no LLM)\n",

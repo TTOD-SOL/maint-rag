@@ -41,7 +41,7 @@ def extract_pages(pdf: Path) -> list[dict]:
     for i, page in enumerate(reader.pages):
         try:
             text = page.extract_text() or ""
-        except Exception:  # noqa: BLE001
+        except Exception:
             text = ""
         if len(text.strip()) < 40:
             weak.append(i)
@@ -56,6 +56,6 @@ def extract_pages(pdf: Path) -> list[dict]:
                     alt = doc.pages[i].extract_text() or ""
                     if len(alt.strip()) > len(out[i]["text"]):
                         out[i]["text"] = _clean(alt)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             log.warning("pdfplumber fallback failed for %s: %s", pdf.name, e)
     return [p for p in out if p["text"]]

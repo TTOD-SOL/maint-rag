@@ -135,11 +135,11 @@ def chunk_document(pages: list[dict], source: str, title: str,
             if need_page:
                 cur_page, need_page = page, False
             cur.append(ln)
-            if est_tokens(" ".join(cur)) >= target:
-                # finish at a sentence boundary if one is near, else at the hard cap
-                if ln.rstrip().endswith((".", "?", "!", ":")) or est_tokens(" ".join(cur)) >= max_tokens:
-                    flush(carry=True)
-                    need_page = True
+            # past target: finish at a sentence boundary if one is near, else at the hard cap
+            size = est_tokens(" ".join(cur))
+            if size >= target and (ln.rstrip().endswith((".", "?", "!", ":")) or size >= max_tokens):
+                flush(carry=True)
+                need_page = True
     if cur:
         flush(carry=False)
     return chunks

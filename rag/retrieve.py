@@ -59,7 +59,7 @@ class Retriever:
                 rec = json.loads(line)
                 chunks[rec["id"]] = rec
         with open(config.BM25_FILE, "rb") as f:
-            b = pickle.load(f)  # noqa: S301 - file is produced by our own build step
+            b = pickle.load(f)
         client = chromadb.PersistentClient(path=str(config.CHROMA_DIR),
                                            settings=chromadb.Settings(anonymized_telemetry=False))
         col = client.get_collection(config.COLLECTION, embedding_function=None)

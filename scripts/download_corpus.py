@@ -78,7 +78,7 @@ def fetch(url: str, dest: Path) -> bool:
                 raise ValueError("response is not a PDF")
         tmp.replace(dest)
         return True
-    except Exception as e:  # noqa: BLE001 - report and try the next mirror
+    except Exception as e:
         print(f"    failed: {url} ({e})")
         tmp.unlink(missing_ok=True)
         return False

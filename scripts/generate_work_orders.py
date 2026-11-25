@@ -175,7 +175,7 @@ def generate(rows: int, seed: int) -> list[dict]:
     out = []
     types = list(ASSET_WEIGHTS)
     weights = [ASSET_WEIGHTS[t] for t in types]
-    for i in range(rows):
+    for _ in range(rows):
         atype = rng.choices(types, weights)[0]
         prefix, count, modes = CATALOG[atype]
         mode = rng.choices(modes, [m[0] for m in modes])[0]
