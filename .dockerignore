@@ -1,0 +1,16 @@
+.git
+.venv
+.cache
+.env
+.env.*
+!.env.example
+index
+data/raw
+eval
+tests
+docs
+infra
+**/__pycache__
+.pytest_cache
+.ruff_cache
+BUILD_PROMPT.md

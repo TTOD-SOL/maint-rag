@@ -56,3 +56,19 @@ uv run python -m eval.run_eval --retrieval-only   # free, deterministic
 uv run python -m eval.run_eval                    # + answers (~$0.02)
 uv run python -m eval.experiments                 # chunking ablation
 ```
+
+## Docker (Phase 5)
+
+- **Multi-stage on `python:3.11-slim`, deps via uv, runs as uid 1000** (what Hugging Face Spaces uses).
+- **Index and embedding model are built into the image.** The build reads PDF text from the committed
+  `data/processed/pages.jsonl`, so it never hits .gov servers and the 40 MB of PDFs stay out of the
+  image. The container starts in about 3 s and needs no volume.
+- **Image size: ~1.0 GB** (no torch). The big items are onnxruntime (64 MB), chromadb's Rust bindings
+  (52 MB), numpy (70 MB with libs), and the 65 MB bge-small model. I strip chromadb's transitive
+  `kubernetes` client (~125 MB), which the embedded client never imports. I checked that
+  retrieval still works in the pruned image.
+- **Secrets are passed through from the shell, not stored.** `docker-compose.yml` lists
+  `ANTHROPIC_API_KEY` and `APP_API_KEY` without values.
+- **Dashboard gotchas:** every Grafana query in a panel needs a unique `refId`, and ratio panels use
+  `or vector(0)` so they show 0% instead of "No data" before the first refusal or error.
+- **The demo rate limiter is in-memory.** Restarting the app resets the per-IP counters.
