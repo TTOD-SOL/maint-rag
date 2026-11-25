@@ -9,8 +9,9 @@ paid plan, which would ask for a card.
 2. Render dashboard > **New > Blueprint** > select the repo.
 3. When prompted, enter the two secrets: `ANTHROPIC_API_KEY` and `APP_API_KEY` (any long random string;
    it protects `POST /ask`; the public demo at `/demo/ask` needs no key).
-4. Wait for the first build (~5–10 min). The URL is `https://maint-rag.onrender.com`
-   (or with a suffix if the name is taken).
+4. Wait for the first build (~5–10 min). Live demo: https://maint-rag.onrender.com
+5. Set the `SERVICE_URL` repo variable to that URL so `deploy.yml` verifies each deploy, and (optional, for
+   rollback) the `RENDER_DEPLOY_HOOK` secret to the service's Deploy Hook URL.
 
 Free-tier facts that shape the design (from Render's docs):
 
